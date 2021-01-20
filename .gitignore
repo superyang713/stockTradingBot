@@ -23,15 +23,4 @@ node_modules/
 secrets_prod.json
 .ipynb_checkpoints/
 
-
-linggo_library/scripts/log.tsv
-linggo_library/scripts/query_log.py
-linggo_library/scripts/log_histogram.png
-linggo_library/static_files/opensymbol_images
-secrets_dev.json
-secrets_prod.json
-
-nltk_data/
-
-api/third_party/layers/tools/python/
-research/
+historical_data/
