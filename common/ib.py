@@ -1,5 +1,4 @@
 import queue
-import datetime
 import time
 from threading import Thread
 
@@ -9,13 +8,59 @@ from ibapi.contract import Contract
 from ibapi.order import Order
 from ibapi.utils import iswrapper
 
-from utils import setup_log
+from .utils import setup_log
 
 
 logger = setup_log(__name__, "local")
 
 
 class IBWrapper(EWrapper):
+
+    def __init__(self):
+        self._my_contract_details = {}
+        self._my_historic_data_dict = {}
+        self._my_errors = queue.Queue()
+        self._historical_data_id = 10
+
+    @iswrapper
+    def error(self, id, errorCode, errorString):
+        # Overrides the native method
+        errormessage = (
+            f"IB returns an error with {id} errorcode {errorCode} "
+            f"that says {errorString}"
+        )
+        self.my_errors_queue.put(errormessage)
+
+    @iswrapper
+    def currentTime(self, server_time):
+        self.my_time_queue.put(server_time)
+
+    @iswrapper
+    def nextValidId(self, orderId: int):
+        super().nextValidId(orderId)
+        self.nextOrderId = orderId
+
+    @iswrapper
+    def orderStatus(
+            self, orderId: int, status: str, filled: float,
+            remaining: float, avgFillPrice: float, permId: int,
+            parentId: int, lastFillPrice: float, clientId: int,
+            whyHeld: str, mktCapPrice: float
+    ):
+        data = {
+            "order_id": orderId,
+            "Status": status,
+            "Filled": filled,
+            "Remaining": remaining,
+            "AvgFillPrice": avgFillPrice,
+            "PermId": permId,
+            "ParentId": parentId,
+            "LastFillPrice": lastFillPrice,
+            "ClientId": clientId,
+            "WhyHeld": whyHeld,
+            "MktCapPrice": mktCapPrice
+        }
+        logger.debug(data)
 
     def init_error(self):
         error_queue = queue.Queue()
@@ -33,41 +78,10 @@ class IBWrapper(EWrapper):
                 return None
         return None
 
-    @iswrapper
-    def error(self, id, errorCode, errorString):
-        # Overrides the native method
-        errormessage = (
-            f"IB returns an error with {id} errorcode {errorCode} "
-            f"that says {errorString}"
-        )
-        self.my_errors_queue.put(errormessage)
-
     def init_time(self):
         time_queue = queue.Queue()
         self.my_time_queue = time_queue
         return time_queue
-
-    @iswrapper
-    def currentTime(self, server_time):
-        self.my_time_queue.put(server_time)
-
-    @iswrapper
-    def nextValidId(self, orderId: int):
-        super().nextValidId(orderId)
-        self.nextorderId = orderId
-
-    @iswrapper
-    def orderStatus(
-            self, orderId: int, status: str, filled: float,
-            remaining: float, avgFillPrice: float, permId: int,
-            parentId: int, lastFillPrice: float, clientId: int,
-            whyHeld: str, mktCapPrice: float
-    ):
-        print("OrderStatus. Id:", orderId, "Status:", status,
-              "Filled:", filled, "Remaining:", remaining, "AvgFillPrice:",
-              avgFillPrice, "PermId:", permId, "ParentId:", parentId,
-              "LastFillPrice:", lastFillPrice, "ClientId:", clientId,
-              "WhyHeld:", whyHeld, "MktCapPrice:", mktCapPrice)
 
 
 class IBClient(EClient):
@@ -131,10 +145,10 @@ def create_contract(symbol):
     """
     contract = Contract()
     contract.symbol = symbol
-    contract.secType = "STK"   # Defines the security type as stock
-    contract.currency = "USD"  # Currency is US dollars
+    contract.secType = "STK"
+    contract.currency = "USD"
     contract.exchange = "SMART"
-    return contract    # Returns the contract object
+    return contract
 
 
 def orderCreate(action: str, quantity: int):
@@ -148,34 +162,34 @@ def orderCreate(action: str, quantity: int):
     order.orderType = "MKT"
     order.transmit = True
     order.totalQuantity = quantity
-    return order   # Returns the order object
+    return order
 
 
-def orderExecution(app: IBApp, symbol: str, action: str, quantity: int):
+def orderExecution(symbol: str, action: str, quantity: int):
     """
     Places the order with the returned contract and order objects
     """
-    contractObject = create_contract(symbol)
-    orderObject = orderCreate(action, quantity)
-    app.placeOrder(app.nextorderId, contractObject, orderObject)
-
-
-if __name__ == '__main__':
     logger.debug("Connecting to the server...")
     app = IBApp("127.0.0.1", 7497, 0)
 
-    time.sleep(10)
+    logger.debug("Waiting to initializing next order ID")
+    time.sleep(3)
 
-    logger.debug("Getting server time")
-    requested_time = app.server_clock()
+    logger.debug("Constructing contract")
+    contractObject = create_contract(symbol)
 
-    logger.info(f"The current time from the server is {requested_time}")
+    logger.debug("Constructing order")
+    orderObject = orderCreate(action, quantity)
 
-    symbol = "AAPL"
-    logger.debug("Buying apple stock")
-    orderExecution(app, symbol=symbol, action="BUY", quantity=10)
+    logger.debug("Placing order")
+    app.placeOrder(app.nextOrderId, contractObject, orderObject)
 
+    logger.debug("Waiting for response")
     time.sleep(5)
 
     logger.debug("Disconnecting from the server...")
     app.disconnect()
+
+
+if __name__ == '__main__':
+    pass

@@ -10,7 +10,7 @@ from ibapi.contract import Contract
 from ibapi.utils import iswrapper
 from threading import Thread
 
-from utils import setup_log
+from common.utils import setup_log
 
 
 DEFAULT_HISTORIC_DATA_ID = 50
@@ -67,11 +67,6 @@ class finishableQueue:
 
 
 class TestWrapper(EWrapper):
-    """
-    The wrapper deals with the action coming back from the IB gateway or TWS instance
-    We override methods in EWrapper that will get called when this action happens, like currentTime
-    Extra methods are added as we need to store the results in this object
-    """
     def __init__(self):
         self._my_contract_details = {}
         self._my_historic_data_dict = {}
@@ -276,7 +271,9 @@ class TestApp(TestWrapper, TestClient):
 
 def write_to_csv(filename, data: list):
     csv_file_path = os.path.join(
-        os.path.abspath(os.path.dirname(__file__)), filename,
+        os.path.abspath(os.path.dirname(os.path.dirname(__file__))),
+        "historical_data",
+        filename,
     )
     fieldnames = ["Date", "Open", "High", "Low", "Close", "Volume"]
     with open(csv_file_path, "w") as fout:
@@ -286,20 +283,15 @@ def write_to_csv(filename, data: list):
             writer.writerow(dict(zip(fieldnames, record)))
 
 
-if __name__ == '__main__':
+def retrieve_historical_data(contract: Contract, filename=None):
+    filename = f"{contract.symbol}.csv" if not filename else filename
+
     app = TestApp("127.0.0.1", 7497, 1)
 
-    contract = Contract()
-    contract.symbol = 'AAPL'
-    contract.secType = 'STK'
-    contract.exchange = 'SMART'
-    contract.currency = 'USD'
-    contract.primaryExchange = "NASDAQ"
     resolved_ibcontract = app.resolve_ib_contract(contract)
-
     historic_data = app.get_IB_historical_data(resolved_ibcontract)
 
-    write_to_csv("apple.csv", historic_data)
+    write_to_csv(filename, historic_data)
     time.sleep(3)
 
     app.disconnect()
