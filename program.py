@@ -1,7 +1,7 @@
 from ibapi.contract import Contract
-from common.historical_data import retrieve_historical_data
-from common.ib import orderExecution
 
+from common.historical_data import retrieve_historical_data
+from common.trade import orderExecution
 from common.utils import setup_log
 
 
