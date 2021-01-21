@@ -16,12 +16,6 @@ logger = setup_log(__name__, "local")
 
 class IBWrapper(EWrapper):
 
-    def __init__(self):
-        self._my_contract_details = {}
-        self._my_historic_data_dict = {}
-        self._my_errors = queue.Queue()
-        self._historical_data_id = 10
-
     @iswrapper
     def error(self, id, errorCode, errorString):
         # Overrides the native method
