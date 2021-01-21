@@ -56,6 +56,13 @@ class IBClient(EClient):
         logger.debug("Sending request to the server")
         self.reqMktData(data_id, contract, '', False, False, [])
 
+        logger.debug("Waiting for error response if there is any")
+        time.sleep(5)
+
+        while self.wrapper.is_error():
+            logger.debug("Error:")
+            logger.debug(self.get_error(timeout=10))
+
 
 class IBApp(IBWrapper, IBClient):
 
