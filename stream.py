@@ -7,6 +7,11 @@ from common.utils import setup_log
 logger = setup_log(__name__, "local")
 
 
+def add_data_id(detail, data_id):
+    detail["data_id"] = data_id
+    return detail
+
+
 if __name__ == '__main__':
     # example for streaming real time data
     apple_contract = Contract()
@@ -26,11 +31,13 @@ if __name__ == '__main__':
     details = [
         {
             "contract": apple_contract,
-            "data_id": 1
         },
         {
             "contract": tesla_contract,
-            "data_id": 2
         },
+    ]
+    details = [
+        add_data_id(detail, i)
+        for i, detail in enumerate(details, 1)
     ]
     stream(details)

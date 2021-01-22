@@ -1,16 +1,24 @@
 import queue
 import time
 from threading import Thread
+from decimal import Decimal
 
+import boto3
 from ibapi.wrapper import EWrapper
 from ibapi.client import EClient
 from ibapi.contract import Contract
-from ibapi.order import Order
 from ibapi.utils import iswrapper
+
 
 from .utils import setup_log
 
 
+table_name = "stock"
+partition_key = "symbol"
+sort_key = "timestamp"
+mapping = None
+
+table = boto3.resource("dynamodb").Table(table_name)
 logger = setup_log(__name__, "local")
 
 
@@ -27,7 +35,15 @@ class IBWrapper(EWrapper):
 
     @iswrapper
     def tickPrice(self, reqId, tickType, price, attrib):
-        logger.debug('The current ask price is: %s with ID %s', price, reqId)
+        symbol = mapping[reqId]
+        logger.debug("The current ask price for %s is: %s", symbol, price)
+        if price > 0:
+            data = {
+                partition_key: symbol,
+                sort_key: int(time.time()),
+                "price": Decimal(str(price)),
+            }
+            table.put_item(Item=data)
 
     def init_error(self):
         error_queue = queue.Queue()
@@ -54,7 +70,7 @@ class IBClient(EClient):
     def stream(self, contract: Contract, data_id):
         # Request Market Data
         logger.debug("Sending request to the server")
-        self.reqMktData(data_id, contract, '', False, False, [])
+        self.reqMktData(data_id, contract, "", False, False, [])
 
         logger.debug("Waiting for error response if there is any")
         time.sleep(5)
@@ -72,7 +88,10 @@ class IBApp(IBWrapper, IBClient):
         IBWrapper.__init__(self)
         IBClient.__init__(self, wrapper=self)
 
+
         self.connect(ipaddress, portid, clientid)
+
+        self.reqMarketDataType(3)
 
         thread = Thread(target=self.run)
         thread.start()
@@ -89,6 +108,10 @@ def stream(details: list):
         "data_id": data_id,
     }
     """
+    global mapping
+    mapping = {
+        detail["data_id"]: detail["contract"].symbol for detail in details
+    }
     logger.debug("Connecting to the server...")
     app = IBApp("127.0.0.1", 7497, 0)
 
