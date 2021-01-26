@@ -1,7 +1,8 @@
+import json
 import logging
 import os
 import csv
-import queue
+import decimal
 
 
 def setup_log(name, usage=None):
@@ -29,3 +30,16 @@ def write_historical_data__to_csv(filename, data: list):
         for record in data:
             writer.writerow(dict(zip(fieldnames, record)))
 
+
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, decimal.Decimal):
+            return float(o)
+        return super(DecimalEncoder, self).default(o)
+
+
+def convert_decimal_to_float(record: dict):
+    for key in record:
+        if isinstance(record[key], decimal.Decimal):
+            record[key] = float(record[key])
+    return record
